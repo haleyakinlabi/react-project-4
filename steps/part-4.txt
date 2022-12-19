@@ -1,0 +1,287 @@
+1. register
+note: 
+    Right now, our authentication functions just log strings to the console. We are going to change 
+    these functions to use JSON web tokens and Sequelize methods to authenticate users.
+
+-In controllers/auth.js, import and configure dotenv and bring in the SECRET variable from the .env file.
+
+-We’re also going to need to import the User model, the bcryptjs package, and the jsonwebtoken package.
+
+-Before we dive into register, create a function outside of the module.exports called createToken that takes in a username and an id.
+
+-The createToken function should return jwt.sign passing in an object with username and
+id as the payload, the SECRET as the secretOrPrivateKey, and an options object that has an
+expiresIn property that’s set to “2 days”. Reference this README if you’re having trouble with the .sign method.
+
+note: 
+    In the register function, we are going to check to see if a user already exists with the username 
+    being sent. If they do, we’ll send a message that we can’t create the user. If there isn’t anyone 
+    with that name yet, then we’ll store the user in our database, create a token for them, and send 
+    the username, their id, their token, and its expiration back to the front end.
+
+-Now in your register function, let’s delete the console.log and replace it with a try catch.
+
+-Before we move on with the functionality, add a console.log to the catch block so that you can catch errors.
+
+-We’re going to use the async/await keywords in these functions, go ahead and add the
+async keyword now to the beginning of your function definition, before the parameters. 
+This will allow us to perform asynchronous actions in the function using the await keyword.
+
+-In the try block, destructure username and password off of req.body - this will make them easier to access for the rest of the function.
+
+-Then create a variable called foundUser that’s set equal to await User.findOne({where:
+{username: username}) which is using the asynchronous findOne method that’s built into 
+our Sequelize User model. We then are passing it an object that adds a WHERE clause to our 
+query and looks for usernames matching the one coming from req.body.
+
+-Next, write an if/else that checks if foundUser is true. If it is, that means we already have a 
+user with that name in the database, so we’ll want to send a 400 error and a message back to the front.
+
+-If it isn’t true, then we’ll do all the work of making a user! First, create a salt and a hashed password using methods from bcrypt:
+const salt = bcrypt.genSaltSync(10)
+const hash = bcrypt.hashSync(password, salt)
+
+-Next, create a new user using the .create method on our User model. The create method 
+is asynchronous and expects an object with the properties defined on the model. So, create 
+a variable called newUser that is equal to await User.create({username: username, hashedPass: hash}).
+
+-Then, make a variable called token that is equal to the invocation of the createToken
+method, passing in newUser.dataValues.username and newUser.dataValues.id. You can 
+see the dataValues by console.logging newUser.
+
+-We’ll also need to make our own expiration time since the JWT sign method only returns 
+the actual token. You can do that with this line: const exp = Date.now() + 1000 * 60 *
+60 * 48. This uses the JavaScript Date object and adds a number of milliseconds to it to 
+equal two days, which is the expiry we assigned to the token earlier.
+
+-Finally, we can send an object to the front end using res.send. The object should have four 
+properties: username whose value should be newUser.dataValues.username userId whose 
+value should be newUser.dataValues.id token whose value should be the token variable you 
+created exp whose value should be the exp variable you created
+
+code: 
+register: async (req, res) => {
+    try {
+        const {username, password} = req.body
+        let foundUser = await User.findOne({where: {username}})
+        if (foundUser) {
+            res.status(400).send('cannot create user')
+        } else {
+            const salt = bcrypt.genSaltSync(10)
+            const hash = bcrypt.hashSync(password, salt)
+            const newUser = await User.create({username, hashedPass: hash})
+            const token = createToken(newUser.dataValues.username, newUser.dataValues.id)
+            console.log('TOOOOOOKEN', token)
+            const exp = Date.now() + 1000 * 60 * 60 * 48
+            res.status(200).send({
+                username: newUser.dataValues.username,
+                userId: newUser.dataValues.id,
+                token,
+                exp})
+        }
+    } catch (error) {
+        console.log('ERROR IN register')
+        console.log(error)
+        res.sendStatus(400)
+    }
+},
+------------------------------------------------------------
+2. login 
+-Set up the skeleton of your login function similarly to how we set up register. Make it 
+async, add a try catch, log something to the console in the catch block, destructure
+username and password, create a foundUser variable, and an if/else that checks if
+foundUser is truthy.
+
+-This time though, since we are trying to log someone in, all the functionality will go in the if
+portion. First, we’ll check to see if the username and password match what’s stored in the 
+database. We can do that with this line: const isAuthenticated = bcrypt.compareSync(password, foundUser.hashedPass).
+
+-Now we’ll need an inner if/else that checks if isAuthenticated is truthy.
+
+-If it is, create a token and exp variables like we did in register and then send an object on the response with the same properties as in register.
+
+-In both the inner and outer else blocks, send a message that says cannot log in or 
+something similar.
+
+-Test your login and register! (Make sure you’re running both nodemon and npm start).
+
+code: 
+
+login: async (req, res) => {
+    try {
+        const {username, password} = req.body
+        let foundUser = await User.findOne({where: {username}})
+        if (foundUser) {
+            const isAuthenticated = bcrypt.compareSync(password, foundUser.hashedPass)
+
+            if (isAuthenticated) {
+                const token = createToken(foundUser.dataValues.username, foundUser.dataValues.id)
+                const exp = Date.now() + 1000 * 60 * 60 * 48
+                res.status(200).send({
+                    username: foundUser.dataValues.username,
+                    userId: foundUser.dataValues.id,
+                    token,
+                    exp
+                })
+            } else {
+                res.status(400).send('cannot log in')
+            }
+
+        } else {
+            res.status(400).send('cannot log in')
+        }
+    } catch (error) {
+        console.log('ERROR IN register')
+        console.log(error)
+        res.sendStatus(400)
+    }
+},
+------------------------------------------------------------
+3. add a post 
+-Let’s start off our post controller with adding a post. This will look similar to our register and login functions.
+
+-First, import your Post and User models at the top of the file.
+
+-Make the addPost function async and add a try-catch statement inside.
+
+-In the try block, destructure title, content, status, and userId from req.body.
+
+-We’ll be using the Sequelize create method again, but this time we don’t need to save it to 
+a variable; so, you can start your line off with await directly. Then call Post.create passing 
+in an object with title, content, privateStatus, and userId properties whose values are 
+their corresponding destructured values from req.body.
+
+-Last, send a 200 status back to the front end.
+
+-In the catch block, you can log errors and send a 400 response back to the front end.
+
+-Now, let’s get the front end to work with this. The code has been provided for you.
+
+-Head to the src/components/Form.js file and delete all the code above line 6, uncomment the rest.
+
+-You can now test the form if you have nodemon and npm start running. However, right now, we won’t be able to see posts anywhere on the front end, which we’ll fix in the next step.
+
+code: 
+addPost: async (req, res) => {
+    try {
+        const {title, content, status, userId} = req.body
+        await Post.create({title, content, privateStatus: status, userId})
+        res.sendStatus(200)
+    } catch (error) {
+        console.log('ERROR IN getCurrentUserPosts')
+        console.log(error)
+        res.sendStatus(400)
+    }
+},
+---------------------------------------------------------------
+4. getting posts 
+-Our app has 2 different endpoints for getting posts. One of them gets all users’ public posts (it 
+filters them on the front end so that you don’t see your own posts) and the other gets all of the 
+current user’s posts (so you can see your own posts in your profile).
+
+Here is code that you can use for the getAllPosts function:
+getAllPosts: async (req, res) => {
+try {
+    const posts = await Post.findAll({
+        where: {privateStatus: false},
+        include: [{
+            model: User,
+            required: true,
+            attributes: [`username`]
+        }]
+    })
+    res.status(200).send(posts)
+} catch (error) {
+    console.log('ERROR IN getAllPosts')
+    console.log(error)
+    res.sendStatus(400)
+}
+
+-Study the code above and figure out how it’s working. Why is there a where clause? What does
+include do? You could even try testing this by taking out different parts and seeing what that 
+affects.
+
+-Once you’ve got an idea of what’s happening, try to write the getCurrentUserPosts
+function. Remember: we want all of the user’s posts, but none of anyone else’s.
+
+-Head to the front end, delete all the active code in /src/components/Home.js’ and 
+‘/src/components/Profile.js, and comment in all of the code below line 16.
+
+-Now you should be able to test! You’ll notice that the “delete” and “make public/private” 
+buttons don’t work yet. Let’s finish up that functionality in the next steps.
+
+code: 
+getCurrentUserPosts: async (req, res) => {
+    try {
+        const {userId} = req.params
+        const posts = await Post.findAll({
+            where: {userId: userId},
+            include: [{
+                model: User,
+                required: true,
+                attributes: [`username`]
+            }]})
+        res.status(200).send(posts)
+    } catch (error) {
+        console.log('ERROR IN getCurrentUserPosts')
+        console.log(error)
+        res.sendStatus(400)
+    }
+},
+--------------------------------------------------------------
+5. edit a post 
+-The only thing that we’ll allow users to update about their posts is whether it’s private or public. 
+With that in mind, read through the code in Profile.js that makes the edit request as well as the 
+code in server/index.js that sets up the endpoint. What information does it look like you’ll have 
+access to in order to complete this request?
+
+-In the editPost function in the post controller, set up the function to be async and add a try-catch statement inside.
+
+-Get the post’s id and status and store them in variables to use in your query to the database.
+
+-Call Sequelize’s asynchronous update method passing in two objects: the first should be an 
+object with the column to update and the value to update it to, the second object should 
+contain a where clause that finds only the entry with the id of the post we’re editing.
+
+-After the update has run, send a 200 status back to the front.
+
+-Set up the catch block.
+
+-Test the button from the profile page!
+
+code: 
+editPost: async (req, res) => {
+    try {
+        const {id} = req.params
+        const {status} = req.body
+        await Post.update({privateStatus: status}, {
+            where: {id: +id}
+        })
+        res.sendStatus(200)
+    } catch (error) {
+        console.log('ERROR IN getCurrentUserPosts')
+        console.log(error)
+        res.sendStatus(400)
+    }
+},
+------------------------------------------------------------
+6. delete a post 
+-Follow the same process we’ve been using to write the deletePost function. Recall that the Sequelize method for deleting is named .destroy.
+
+code: 
+deletePost: async (req, res) => {
+    try {
+        const {id} = req.params
+        await Post.destroy({where: {id: +id}})
+        res.sendStatus(200)
+    } catch (error) {
+        console.log('ERROR IN getCurrentUserPosts')
+        console.log(error)
+        res.sendStatus(400)
+    }
+}
+--------------------------------------------------------------
+7. create a notification 
+
+-In Auth.js, set up a notification that will run when the axios request catches an error. You can add text to the page, use the alert() function, create your own modal, or use a package from npm.
+

@@ -1,0 +1,154 @@
+1. create database 
+'postgresql://wasatchTimp:v2_3wxSv_UmpEZxTgGCbsCLbEx62HkXx@db.bit.io/wasatchTimp/react-proj-4'
+-------------------------------------------------------------------------------------------------------
+2. setup Sequelize connection
+-In your server folder, create a folder called util and in that folder, a file called database.js - 
+this is where we’ll connect to the database with Sequelize.
+
+-Import and configure dotenv at the top of the file.
+
+-Additionally, import the CONNECTION_STRING from your .env and the Sequelize class, 
+which is the default export from the package.
+
+-Create a new instance of the Sequelize class, passing in the database connection string and 
+-a configuration object. You can call the instance sequelize with a lowercase “s”.
+
+-The configuration object should have a dialect property whose value is “postgres” and a
+dialectOptions property whose value is an object. That object should contain a property 
+called ssl whose value is also an object (so we’ve got an object in an object in an object). 
+The innermost object should have a rejectUnauthorized property whose value is false. 
+This will make working with the connection in development easier.
+
+-Don’t forget to export sequelize.
+
+code: 
+require('dotenv').config()
+const {CONNECTION_STRING} = process.env
+const Sequelize = require('sequelize')
+
+const sequelize = new Sequelize(CONNECTION_STRING, {
+    dialect: 'postgres',
+    dialectOptions: {
+        ssl: {
+            rejectUnauthorized: false
+        }
+    }
+})
+
+module.exports = {
+    sequelize
+}
+---------------------------------------------------------------
+3. create user model 
+-In your server folder, create a models folder and in that folder, create a user.js file.
+
+-The user.js file is where you’ll define what your user objects should look like. Because we’re 
+using Sequelize, this is how we’ll be defining our tables. Sequelize will take our models and 
+set up the database for us.
+
+-In user.js, import DataTypes from sequelize.
+
+-Import your Sequelize connection, sequelize, from the util/database file.
+
+-Set up a module.exports object with one property: User. In the value of this property, we 
+will call a function from Sequelize to set up what the user objects should look like.
+
+-The value of User should be set to sequelize.define passing in the string “user”, which is 
+the name of the table, and an object with three properties: id, username, and hashedPass.
+
+-The value of id should be a configuration object with type, autoIncrement, allowNull, and
+primaryKey properties. The value of type should be DataTypes.INTEGER and the other 
+three should be boolean values. Determine those values based on what you know about ids in databases.
+
+-The username and hashedPass properties should both be strings. Don’t forget to use the 
+Sequelize DataTypes to define those.
+
+code: 
+
+const {DataTypes} = require('sequelize')
+
+const {sequelize} = require('../util/database')
+
+module.exports = {
+    User : sequelize.define('user', {
+        id: {
+            type: DataTypes.INTEGER,
+            autoIncrement: true,
+            allowNull: false,
+            primaryKey: true
+        },
+        username: DataTypes.STRING,
+        hashedPass: DataTypes.STRING
+    })
+}
+----------------------------------------------------
+4. create a post model 
+-Using your User model as a guide, create a Post model in your post.js file. Make sure to include 
+the following properties on your object:
+    id
+    title
+    content
+    privateStatus
+
+code: 
+const {DataTypes} = require('sequelize')
+
+const {sequelize} = require('../util/database')
+
+module.exports = {
+    Post : sequelize.define('post', {
+        id: {
+            type: DataTypes.INTEGER,
+            autoIncrement: true,
+            allowNull: false,
+            primaryKey: true
+        },
+        title: DataTypes.STRING,
+        content: DataTypes.TEXT,
+        privateStatus: DataTypes.BOOLEAN
+    })
+}
+-----------------------------------------------------
+5. connect to database
+-Now that we have the outline for the database, we want to actually have our server connect to it 
+when the server starts up. We’ll also set up the relationship between our User and Post models 
+in this step.
+
+-In index.js in your server, import sequelize from util/database and each of your models 
+from their respective files.
+
+-Somewhere above your endpoints and below the imports, let’s set up the relationships for
+User and Post. In our application, users can post as much as they would like and each post 
+only has one author. Using Sequelize, we can define those relationships with the .hasMany
+and .belongsTo methods.
+
+-Now, at the bottom of your file, we’ll use the .sync method to connect to our database. Call
+sequelize.sync, which is an asynchronous function, so you’ll want to follow that up with a
+.then. Pass the .then a callback function and move your app.listen line inside that 
+callback. This will make it so when you run your file with nodemon, it will sync up with the database before the server starts up.
+
+-You can test this by running nodemon and then opening up SQL Tabs, Postico, or a similar 
+app and connecting to your database. You can then view what tables are available - there 
+won’t be any data yet though.
+
+code: 
+const {sequelize} = require('./util/database')
+const {User} = require('./models/user')
+const {Post} = require('./models/post')
+
+...
+
+User.hasMany(Post)
+Post.belongsTo(User)
+
+...
+
+// the force: true is for development -- it DROPS tables!!!
+// you can use it if you like while you are building
+// sequelize.sync({ force: true })
+sequelize.sync()
+.then(() => {
+    app.listen(PORT, () => console.log(`db sync successful & server running on port ${PORT}`))
+})
+.catch(err => console.log(err))
+----------------------------------------------------------------

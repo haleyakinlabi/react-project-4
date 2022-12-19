@@ -1,0 +1,183 @@
+1. initial setup 
+-At the root of your project, create a folder called server.
+
+-Inside the folder, create an index.js file, a controllers folder, and a middleware folder.
+
+-At the root of your project, create a .env file and be sure to add it to your .gitignore before your next commit!
+
+-Add PORT and SECRET variables to your .env - the post is where your server will run. The secret can be any value you like; it will be used to create the JWT.
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+2. setup controller files
+note: 
+    First, let’s set up a controller for authentication. Up until now, we’ve been using a Devmountain API, but eventually, we’ll complete our own and it starts here!
+
+-Create a file called auth.js in the controllers directory.
+
+-This file should export two functions - login and logout, which for now can just log something to the console.
+
+note: 
+    Now we also want to set up a posts controller - this is a social media app after all. This app will 
+    allow users to add and delete their own posts as well as change them from private to public. It 
+    also allows anyone on the website to view public posts.
+    
+-Create a file called posts.js in the controllers directory.
+
+-This file should export five functions - getAllPosts, getCurrentUserPosts, addPost,
+editPost, and deletePost, which for now can just log something to the console.
+
+code: 
+// auth.js
+module.exports = {
+    register: (req, res) => {
+        console.log('register')
+    },
+
+    login: (req, res) => {
+        console.log('login')
+    },
+}
+
+// posts.js
+module.exports = {
+    getAllPosts: (req, res) => {
+        console.log('get all posts')
+    },
+
+    getCurrentUserPosts: (req, res) => {
+        console.log('current user posts')
+    },
+
+    addPost: (req, res) => {
+        console.log('add post')
+    },
+
+    editPost: (req, res) => {
+        console.log('edit post')
+    },
+
+    deletePost: (req, res) => {
+        console.log('delete post')
+    }
+}
+---------------------------------------------------------------------------------
+3. middleware
+note: 
+    We will set up a middleware function that will run on every request that requires a user to be 
+    authenticated to run. If they don’t pass this middleware, then they won’t be able to make the 
+    request.
+
+-In the middleware folder, create a file called isAuthenticated.js.
+
+-Copy and paste the code below into your file.
+
+-Read through the code and write at least 5 comments explaining different parts of the code.
+
+code: 
+require('dotenv').config()
+const jwt = require('jsonwebtoken')
+const {SECRET} = process.env
+
+module.exports = {
+    isAuthenticated: (req, res, next) => {
+        const headerToken = req.get('Authorization')
+
+        if (!headerToken) {
+            console.log('ERROR IN auth middleware')
+            res.sendStatus(401)
+        }
+
+        let token
+
+        try {
+            token = jwt.verify(headerToken, SECRET)
+        } catch (err) {
+            err.statusCode = 500
+            throw err
+        }
+
+        if (!token) {
+            const error = new Error('Not authenticated.')
+            error.statusCode = 401
+            throw error
+        }
+
+        next()
+    }
+}
+---------------------------------------------------------------
+4. main server file
+Import the following:
+
+-dotenv (don’t forget to call its config() method)
+-express
+-cors
+-PORT
+-All the functions from auth.js
+-All the functions from posts.js
+-Your middleware function
+
+Now that we are in the back end, app will refer to our server app.
+
+-Create a variable called app that is equal to express invoked.
+
+-At the bottom of the file, call app.listen passing in your port number and a callback that 
+logs a success message to the console.
+
+Recall that you created 7 functions in your controller folder. We’ll need an endpoint for each of those functions.
+
+A post endpoint for registering at /register
+A post endpoint for logging in at /login
+A get endpoint for getting all the posts at /posts
+A get endpoint for getting the current user’s posts at /userposts/:userId
+A post endpoint for creating a post at /posts
+A put endpoint for editing posts at /posts/:id
+A delete endpoint for deleting posts at /posts/:id
+
+We created one function that we need to run on requests that require authentication. 
+Additionally, there are a couple of lines of code that you might have noticed missing from our 
+server that are also middleware.
+
+-On the endpoints for posting, editing, or deleting a post, add the isAuthenticated
+middleware.
+
+-Above all of your endpoints, add app.use middleware for parsing your requests into JSON 
+and using the cors package. app.use middleware will run on every endpoint defined below 
+it in the file.
+
+code: 
+require('dotenv').config()
+
+const express = require('express')
+const cors = require('cors')
+
+const {PORT} = process.env
+const {getAllPosts, getCurrentUserPosts, addPost, editPost, deletePost} = require('./controllers/posts')
+const {register, login} = require('./controllers/auth')
+const {isAuthenticated} = require('./middleware/isAuthenticated')
+
+const app = express()
+
+app.use(express.json())
+app.use(cors())
+
+//AUTH
+app.post('/register', register)
+app.post('/login', login)
+
+// GET POSTS - no auth
+app.get('/posts', getAllPosts)
+
+// CRUD POSTS - auth required
+app.get('/userposts/:userId', getCurrentUserPosts)
+app.post('/posts', isAuthenticated, addPost)
+app.put('/posts/:id', isAuthenticated, editPost)
+app.delete('/posts/:id', isAuthenticated, deletePost)
+
+app.listen(PORT, () => console.log(`db sync successful & server running on port ${PORT}`))
+-----------------------------------------------------
+5. Test 
+-Run your server using nodemon.
+
+-Open Postman and test your endpoints! You won’t get any responses in Postman, but you should see console.log s in your terminal.
+-----------------------------------------------------------------------------------------------------
+

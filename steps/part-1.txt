@@ -1,0 +1,347 @@
+1. Download starter code 
+-run npm i 
+-cd into correct directory 
+------------------------------------------------
+2. Auth form skeleton 
+-Explore the components/Auth.js file. 
+This is the starting point for your app’s authentication.
+
+-Open your app in the browser (run npm start if you haven’t yet) and make sure that you’re not getting any errors so far. 
+Also submit the form to make sure that the handler function runs.
+----------------------------------------------------------------------------------------------------------------------------
+3. Capture user inputs
+-Set appropriate type, placeholder, and value props on each input.
+
+-Change the state of username when a user types in the first field.
+
+-Change the state of password when a user types in the second field.
+
+-Change the state of register when a user clicks on the button at the bottom of the page.
+
+-Check on your app in the browser to make sure everything is working still 
+(you can also add console.log s to check on your state values).
+
+code: 
+<input
+    type='text'
+    placeholder='username'
+    value={username}
+    onChange={e => setUsername(e.target.value)}
+    className='form-input'/>
+<input
+    type='password'
+    placeholder='password'
+    value={password}
+    onChange={e => setPassword(e.target.value)}
+    className='form-input'/>
+
+...
+
+<button className='form-btn'>Need to {register ? 'Login' : 'Sign Up'}?</button>
+---------------------------------------------------------------------------------
+4. sumitHandler function
+note: 
+    Since you don’t have a backend built out yet, you’ll use a Devmountain API temporarily. 
+    This API was designed in the same way that you’ll make yours later in this project.
+
+    The authentication API expects to receive a username and password on the body of post requests. 
+    It returns an object with user information and a JSON Web Token.   
+
+    The base URL is: https://socialmtn.devmountain.com
+
+-Import axios at the top of the file.
+
+-In the submitHandler function, check if the user is registering or logging in.
+
+-If they are registering, use axios to send a POST request to the API at the /register endpoint. Don’t forget to send a body object with the request.
+
+-If they are logging in, use axios to send a POST request to the API at the /login endpoint. Don’t forget to send a body object with the request.
+
+-The axios requests will create promise``s which you can handle using a ``.
+then or using async & await. Either way, when you get the response back from the API, console.log the data. 
+You’ll come back to this after you set up an authentication context provider.
+
+-You should also add a method for catching errors. 
+There you can log errors, reset input field values, or anything else that would be helpful to you as you debug. 
+(At the end of the project, there’s also a challenge that will use this error catcher.)
+
+code: 
+import axios from 'axios'
+
+...
+
+const submitHandler = e => {
+    e.preventDefault()
+
+    const body = {
+        username,
+        password
+    }
+
+    const url = 'https://socialmtn.devmountain.com'
+
+    axios.post(register ? `${url}/register` : `${url}/login`, body)
+        .then(({data}) => {
+            console.log('AFTER AUTH', data)
+        })
+        .catch(err => {
+            setPassword('')
+            setUsername('')
+        })
+}
+-----------------------------------------------------------
+5. Authentication context skeleton
+-In this step, you should take time to read the following paragraphs 
+as well as to explore the code given to you in store/authContext.js.
+
+-If you need a refresher on context, head to the React docs.
+
+-In short, context allows multiple components at different levels of our app access to the same information. 
+For this application, we have 2 pieces of data to store and 2 functions that affect that data. 
+As for the data, we’ll need to store the user’s JWT so that we can send it when we make additional requests. 
+We’ll also need their id for certain requests, so we’ll store that as well. As for the functions, users will need to be able to login and logout, which will set or remove the token and id respectively.
+
+-Notice AuthContext near the top of the file.
+When you initialize that context, you have to pass in an object with the default values. 
+These values will only be used if a Provider isn’t found.
+That’s why in the AuthContextProvider below, we are using local values for the context. 
+This is the provider that we’ll use in index.js 
+to make sure that all the components in our app can access the values.
+
+-There are some helper functions included that should look familiar to you. 
+They’ll allow us to calculate the remaining time left on a token and access the localStorage respectively.
+The code at the top of the component checks for localStorage and sets it to state if available.
+That means that users could leave our app and come back and still be logged in until the token expires.
+
+-Look at the return of the AuthContextProvider component – it should return a component called AuthContext.Provider 
+–this is available from the initial context we created earlier. By returning it from our custom component, we get all the functionality from the context API with our added state and functions.
+-You’ll also see that the returned component displays props.children.
+-This will allow the outer component, which is the one we’ll use, to display whatever jsx is written inside it.
+-We’ll see in the next step that the child passed to our provider is our entire app!
+----------------------------------------------------------------------------------------------
+6. Making auth context avaliable app wide
+-In src/index.js, import AuthContextProvider from the store.
+
+-Wrap your App component with the provider. (You can wrap it around BrowserRouter as well).
+
+-This will allow any component in your app to access the auth context with the useContext hook!
+
+code: 
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import './index.css'
+import App from './App'
+import { BrowserRouter } from 'react-router-dom'
+import {AuthContextProvider} from './store/authContext'
+
+const root = ReactDOM.createRoot(document.getElementById('root'))
+
+root.render(
+<React.StrictMode>
+<AuthContextProvider>
+    <BrowserRouter>
+    <App />
+    </BrowserRouter>
+</AuthContextProvider>
+</React.StrictMode>
+)
+----------------------------------------------------------------
+7. Login using context
+note: 
+    Let’s think about what needs to happen when a user logs in. We’ll need to store their token and userId. And we’ll also want to start a timer so that they’re logged out when their token expires. 
+    This expiration is set by the backend and the time will be sent back with the response from the server. We should also consider where this function will be called from and how it will get the data it needs. 
+    For our application, as with most, there is only one place to login from – the main authentication form. 
+    That form makes a request to the backend and then gets some information back as a response.
+    That response data is what we want to store in our AuthContext. We know (from step 4 and hopefully from your exploration) that we will get the needed information from that response.
+
+    This step of the project will use localStorage. Head to this link if you need a refresher on the topic.
+
+-Near the top of your store/authContext.js file, notice the variable named logoutTimer. 
+It will be used to keep track of how much time is left before the user’s token expires. We’ll change the value of this when users login and logout.
+
+-In the AuthContextProvider component, find the function named login and change it so that it takes in a token, an expiration time, and a user id.
+
+-Inside the function, set the token and user id to their respective portions of state.
+
+-Additionally, save the token, expiration time, and the user id to localStorage.
+
+-Next, we’ll need to figure out how much time is remaining on the token.
+
+-Inside the login function, create a variable called remainingTime and set it equal to the invocation of the calculateRemainingTime function passing in the expiration time that got passed into login.
+
+-The last thing we’ll do in the login function is to set the value of logoutTimer that we looked at at the beginning of this step. 
+Go ahead and reassign the value of logoutTimer to the invocation of setTimeout (a built-in JavaScript function that expects a callback and a number of milliseconds; 
+it will execute the callback when the provided milliseconds have passed) passing in logout and remainingTime. 
+Currently, our logout function doesn’t do anything, we’ll fix that in a couple of steps.
+
+code: 
+let logoutTimer
+
+...
+
+const login = (token, exp, userId) => {
+setToken(token)
+setUserId(userId)
+localStorage.setItem('token', token)
+localStorage.setItem('exp', exp)
+
+const remainingTime = calculateRemainingTime(exp)
+
+logoutTimer = setTimeout(logout, remainingTime)
+}
+----------------------------------------------------------
+8. Calling login from auth form 
+note: 
+    Now that we have a way to store the user information in context, we need to actually call the login function. 
+    We’ll need to set up Auth.js to be able to read the context we created and execute functions from it.
+
+-Open Auth.js and import useContext from React and the AuthContext from your store.
+
+-Inside the Auth component, create a variable named authCtx that stores the result of invoking useContext passing in AuthContext.
+This will allow the Auth component to hook into the auth context!
+
+-In the submitHandler function, after the user information comes back from the axios request, call authCtx.login 
+passing in the token, expiration time, and user id from the response.
+
+-Test your code by trying to register a new user! 
+Notice that login will get called whether a user is registering or logging in. 
+This is convenient for users since they won’t have to refill the login form immediately after registering.
+
+code: 
+import {useState, useContext} from 'react'
+
+...
+
+const authCtx = useContext(AuthContext)
+
+...
+
+authCtx.login(res.data.token, res.data.exp, res.data.userId)
+----------------------------------------------------------------------
+9. restrict views in App.js
+-Now that users have the ability to login, let’s change some of our pages to only be viewable if you’re logged in.
+
+-In App.js, import useContext from React and the AuthContext from your store.
+
+-Just like in the last step, inside the component, 
+create a variable named authCtx that stores the result of invoking useContext passing in AuthContext. 
+This will allow the App component to hook into the auth context!
+
+-In the Auth route’s element prop, check if there is a token in context. If there isn’t, send users to Auth, if there is, use the 
+Navigate component to send them to the home path.
+
+-Using a similar method (checking for the token and utilizing Navigate), send 
+unauthenticated users to the authentication form if they try to view the form or profile pages.
+
+-test 
+
+code: 
+
+import { useContext } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import './App.css'
+
+import Header from './components/Header'
+import Home from './components/Home'
+import Auth from './components/Auth'
+import Form from './components/Form'
+import Profile from './components/Profile'
+
+import AuthContext from './store/authContext'
+
+const App = () => {
+const authCtx = useContext(AuthContext)
+
+return (
+    <div className='app'>
+        <Header/>
+        <Routes>
+        <Route path='/' element={<Home/>}/>
+        <Route path='/auth' element={!authCtx.token ? <Auth/> : <Navigate to='/'/>}/>
+        <Route path='/form' element={authCtx.token ? <Form/> : <Navigate to='/auth'/>}/>
+        <Route path='/profile' element={authCtx.token ?<Profile/> : <Navigate to='/auth'/>}/>
+        <Route path='*' element={<Navigate to='/'/>}/>
+        </Routes>
+    </div>
+)
+}
+
+export default App
+------------------------------------------------------------------------------
+10. Challenge: logout option in Header
+note: 
+    Without looking at the solution code below, try to implement AuthContext in your Header
+    component to show only the appropriate links for authenticated and unauthenticated users. 
+    Reference the previous two steps and the Udemy content to try and figure this out. Once you’ve 
+    given it your best shot, look at the solution below. It’s fine if yours doesn’t match exactly, but it 
+    should only show “Home” and “Login or Sign Up” to unauthenticated users. Authenticated users 
+    should see “Home”, “Profile”, “Add Post” and “Logout” in the header.
+
+code: 
+
+import {useContext} from 'react'
+import {Link} from 'react-router-dom'
+
+import AuthContext from '../store/authContext'
+import logo from '../assets/dm-logo-white.svg'
+
+const Header = () => {
+const authCtx = useContext(AuthContext)
+
+return (
+    <header className='header flex-row'>
+        <div className='flex-row'>
+            <img src={logo} alt='dm-logo' className='logo'/>
+            <h2>Social Mountain</h2>
+        </div>
+        <nav>
+            {
+                authCtx.token ? (
+                    <ul className='main-nav'>
+                        <li>
+                            <Link to='/'>Home</Link>
+                        </li>
+                        <li>
+                            <Link to='profile'>Profile</Link>
+                        </li>
+                        <li>
+                            <Link to='form'>Add Post</Link>
+                        </li>
+                        <li>
+                            <button className='logout-btn' onClick={() => authCtx.logout()}>Logout</button>
+                        </li>
+                    </ul>
+                ) : (
+                    <ul className='main-nav'>
+                        <li>
+                            <Link to='/'>Home</Link>
+                        </li>
+                        <li>
+                            <Link to='/auth'>Login or Sign Up</Link>
+                        </li>
+                    </ul>
+                )
+            }
+        </nav>
+    </header>
+)
+}
+
+export default Header
+-------------------------------------------------------------------------------------------
+11. Logout functionality
+note:
+    The final step of setting up our context file is making a way for users to logout. We’ll also round 
+    out the functionality of the logout timer.
+
+-In the logout function, set the token and userId stored on state to be null. And remove the 
+items we added to localStorage. Our other components will be reading this information 
+from the context, so once we remove it here, it won’t be available anywhere else.
+
+-The function should also check if logoutTimer is still going, and if it is, we should call the
+clearTimeout function passing in the name of the timer. We have to check if the timer is still 
+going since this function can be called when users choose to logout or when the timer runs out. 
+We don’t need to clear the timer if it’s already run out. #.
+---------------------------------------------------------------------------------------------------------
+
+
